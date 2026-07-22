@@ -83,7 +83,7 @@ async function main() {
     console.log("Registering credential definition...");
     const credDefResp = await postJson("/credential-definitions", {
       schema_id: schemaId,
-      tag: "default",
+      tag: "default-v2",
       support_revocation: false,
     });
     credDefId =

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import PortalLayout from "../components/PortalLayout";
 import { api } from "../lib/api";
 
@@ -58,6 +59,24 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-dashed border-brand-200 bg-brand-50 p-5">
+            <div>
+              <p className="text-sm font-semibold text-brand-900">
+                Bonus: DIDComm messaging demo
+              </p>
+              <p className="mt-0.5 text-sm text-brand-700">
+                Connect wallet-to-wallet with a faculty member and exchange messages directly.
+              </p>
+            </div>
+            <Link
+              to="/messaging/student"
+              target="_blank"
+              className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Open messaging
+            </Link>
           </div>
         </div>
       )}

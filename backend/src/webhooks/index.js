@@ -1,6 +1,11 @@
 const express = require("express");
 const { acapy } = require("../lib/acapy");
-const { loginAttempts, issuanceAttempts, credExToIssuanceId } = require("../lib/store");
+const {
+  loginAttempts,
+  issuanceAttempts,
+  credExToIssuanceId,
+  messagesByConnection,
+} = require("../lib/store");
 
 const router = express.Router();
 
@@ -110,15 +115,31 @@ async function handleIssueCredential(body) {
   }
 }
 
-router.post("/topic/:topic", async (req, res) => {
-  const { topic } = req.params;
+function handleBasicMessage(body) {
+  const { connection_id: connectionId, content } = body;
+  if (!connectionId || !content) return;
+  const history = messagesByConnection.get(connectionId) || [];
+  history.push({ sender: "them", content, timestamp: new Date().toISOString() });
+  messagesByConnection.set(connectionId, history);
+}
+
+// ACA-Py is configured (see docker-compose.yml) to post webhooks to
+// /webhooks/<agent>/topic/<topic>, where <agent> is "university", "student",
+// or "faculty" — that lets one backend disambiguate which of the three
+// agent containers an event came from.
+router.post("/:agent/topic/:topic", async (req, res) => {
+  const { agent, topic } = req.params;
   const body = req.body;
   try {
-    if (topic === "present_proof_v2_0") await handlePresentProof(body);
-    else if (topic === "connections") await handleConnections(body);
-    else if (topic === "issue_credential_v2_0") await handleIssueCredential(body);
+    if (agent === "university") {
+      if (topic === "present_proof_v2_0") await handlePresentProof(body);
+      else if (topic === "connections") await handleConnections(body);
+      else if (topic === "issue_credential_v2_0") await handleIssueCredential(body);
+    } else if (agent === "student" || agent === "faculty") {
+      if (topic === "basicmessages") handleBasicMessage(body);
+    }
   } catch (err) {
-    console.error(`Error handling webhook topic ${topic}`, err);
+    console.error(`Error handling webhook ${agent}/${topic}`, err);
   }
   res.status(200).json({ ok: true });
 });

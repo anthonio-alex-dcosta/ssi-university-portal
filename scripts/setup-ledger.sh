@@ -40,7 +40,7 @@ else
   echo "UNIVERSITY_SEED already set in .env, skipping ledger registration."
 fi
 
-for key in UNIVERSITY_WALLET_KEY STUDENT_WALLET_KEY SESSION_SECRET ADMIN_TOKEN; do
+for key in UNIVERSITY_WALLET_KEY STUDENT_WALLET_KEY FACULTY_WALLET_KEY SESSION_SECRET ADMIN_TOKEN; do
   current=$(grep "^${key}=" .env | cut -d= -f2- || true)
   if [ -z "$current" ] || [ "$current" = "change-me-university-wallet-key" ] || [[ "$current" == change-me-* ]]; then
     set_env "$key" "$(gen_secret)"

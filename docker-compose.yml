@@ -33,12 +33,15 @@ services:
       - --label
       - "BRAC University"
       - --webhook-url
-      - http://backend:5000/webhooks
+      - http://backend:5000/webhooks/university
       - --auto-accept-invites
       - --auto-accept-requests
       - --auto-ping-connection
       - --log-level
       - info
+    user: root
+    volumes:
+      - university-wallet:/home/aries/.acapy_agent/wallet
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8021/status/live')"]
       interval: 5s
@@ -77,6 +80,8 @@ services:
       - ${STUDENT_WALLET_KEY}
       - --label
       - "Test Student Wallet"
+      - --webhook-url
+      - http://backend:5000/webhooks/student
       - --auto-accept-invites
       - --auto-accept-requests
       - --auto-ping-connection
@@ -85,8 +90,59 @@ services:
       - --auto-respond-presentation-request
       - --log-level
       - info
+    user: root
+    volumes:
+      - student-wallet:/home/aries/.acapy_agent/wallet
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8031/status/live')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [ssi-net]
+
+  faculty-agent:
+    image: ${ACAPY_IMAGE:-ghcr.io/openwallet-foundation/acapy-agent:1.6.0}
+    container_name: faculty-agent
+    ports:
+      - "8040:8040"
+      - "8041:8041"
+    command:
+      - start
+      - --auto-provision
+      - --inbound-transport
+      - http
+      - "0.0.0.0"
+      - "8040"
+      - --outbound-transport
+      - http
+      - --endpoint
+      - http://faculty-agent:8040
+      - --admin
+      - "0.0.0.0"
+      - "8041"
+      - --admin-insecure-mode
+      - --genesis-url
+      - ${GENESIS_URL}
+      - --wallet-type
+      - askar
+      - --wallet-name
+      - faculty_wallet
+      - --wallet-key
+      - ${FACULTY_WALLET_KEY}
+      - --label
+      - "Test Faculty Wallet"
+      - --webhook-url
+      - http://backend:5000/webhooks/faculty
+      - --auto-accept-invites
+      - --auto-accept-requests
+      - --auto-ping-connection
+      - --log-level
+      - info
+    user: root
+    volumes:
+      - faculty-wallet:/home/aries/.acapy_agent/wallet
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8041/status/live')"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -100,6 +156,8 @@ services:
     environment:
       PORT: 5000
       UNIVERSITY_ADMIN_URL: http://university-agent:8021
+      STUDENT_ADMIN_URL: http://student-agent:8031
+      FACULTY_ADMIN_URL: http://faculty-agent:8041
       SESSION_SECRET: ${SESSION_SECRET}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
@@ -108,8 +166,17 @@ services:
     depends_on:
       university-agent:
         condition: service_healthy
+      student-agent:
+        condition: service_healthy
+      faculty-agent:
+        condition: service_healthy
     networks: [ssi-net]
 
 networks:
   ssi-net:
     driver: bridge
+
+volumes:
+  university-wallet:
+  student-wallet:
+  faculty-wallet:

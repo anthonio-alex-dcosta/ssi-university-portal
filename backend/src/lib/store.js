@@ -5,6 +5,9 @@ const loginAttempts = new Map(); // presExId -> { status, studentData?, createdA
 const issuanceAttempts = new Map(); // issuanceId (invi_msg_id) -> { status, studentData, connectionId?, credExId? }
 const credExToIssuanceId = new Map(); // credExId -> issuanceId
 
+// Bonus DIDComm messaging demo: connectionId -> [{ sender: 'me'|'them', content, timestamp }]
+const messagesByConnection = new Map();
+
 const LOGIN_TTL_MS = 5 * 60 * 1000;
 
 function pruneLoginAttempts() {
@@ -15,4 +18,4 @@ function pruneLoginAttempts() {
 }
 setInterval(pruneLoginAttempts, 60 * 1000).unref();
 
-module.exports = { loginAttempts, issuanceAttempts, credExToIssuanceId };
+module.exports = { loginAttempts, issuanceAttempts, credExToIssuanceId, messagesByConnection };

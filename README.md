@@ -35,15 +35,16 @@ React/Tailwind frontend.
 ## Repository layout
 
 ```
-docker-compose.yml        # university-agent, student-agent (test wallet), backend
-.env.example               # copy to .env — see scripts/setup-ledger.sh
-backend/                   # Express API: webhooks, login/issuance routes, sessions
-frontend/                  # React + Tailwind portal UI
+docker-compose.yml         # university/student/faculty ACA-Py agents + backend
+.env.example                # copy to .env — see scripts/setup-ledger.sh
+backend/                    # Express API: webhooks, login/issuance/messaging routes, sessions
+frontend/                   # React + Tailwind portal UI
 scripts/
-  setup-ledger.sh          # one-time: registers the university DID on BCovrin Test
-  register-schema.js       # one-time: registers the Student ID schema + cred def
-  simulate-wallet-scan.js  # stands in for "scan this QR" during automated testing
-  e2e-test.sh              # full automated issue -> login -> protected pages -> logout test
+  setup-ledger.sh           # one-time: registers the university DID on BCovrin Test
+  register-schema.js        # one-time: registers the Student ID schema + cred def
+  simulate-wallet-scan.js   # stands in for "scan this QR" during automated testing
+  e2e-test.sh               # full automated issue -> login -> protected pages -> logout test
+  e2e-messaging-test.sh     # full automated bonus DIDComm messaging test
 ```
 
 ## Prerequisites
@@ -75,15 +76,21 @@ to re-run (it won't overwrite an already-registered DID).
 docker compose up -d --build
 ```
 
-This brings up three containers:
+This brings up four containers:
 
 | Container | Purpose | Ports |
 |---|---|---|
 | `university-agent` | ACA-Py issuer + verifier for BRAC University | 8020 (DIDComm), 8021 (admin API) |
-| `student-agent` | ACA-Py instance used **only** as a scriptable stand-in for a phone wallet, for automated testing | 8030 (DIDComm), 8031 (admin API) |
+| `student-agent` | ACA-Py instance used as a scriptable stand-in for a phone wallet (credential login testing), and as the "student" side of the bonus messaging demo | 8030 (DIDComm), 8031 (admin API) |
+| `faculty-agent` | ACA-Py instance used as the "faculty" side of the bonus messaging demo | 8040 (DIDComm), 8041 (admin API) |
 | `portal-backend` | Express API | 5000 |
 
-Wait for both agents to report healthy:
+Each agent's wallet is stored in a named Docker volume, so recreating a
+container (e.g. after a `docker-compose.yml` change) does **not** lose
+issued credentials or connections — only `docker compose down -v` or
+deleting the volume does.
+
+Wait for all agents to report healthy:
 
 ```bash
 docker compose ps
@@ -171,11 +178,9 @@ This is the one part of the demo that needs manual, outside-of-code steps:
    ```bash
    docker compose up -d university-agent
    ```
-   > ⚠️ This wipes the university agent's in-memory wallet (no volume is
-   > mounted for it — this is a demo, not a production deployment). You'll
-   > need to re-run `scripts/setup-ledger.sh` (it'll register a fresh DID
-   > since `UNIVERSITY_SEED` is already set, it reuses it — safe) and
-   > `node scripts/register-schema.js` again afterward.
+   The agent's wallet persists across this (see the volumes note above), so
+   there's no need to re-run the setup scripts — just recreate the
+   container and it picks up the new endpoint on its next connection.
 3. **Install Bifold.** Either sideload a release APK/TestFlight build if
    one is available for your platform, or build it from source
    (`git clone https://github.com/openwallet-foundation/bifold-wallet`) —
@@ -195,11 +200,10 @@ This is the one part of the demo that needs manual, outside-of-code steps:
   `docker logs university-agent` / `docker logs student-agent`; the most
   common cause is the BCovrin Test ledger being briefly unreachable
   (`GENESIS_URL` fetch failure at startup) — just restart the container.
-- **Recreating `university-agent` or `student-agent` wipes their wallets.**
-  Neither has a volume mounted, by design (this is a demo). If you edit
-  `docker-compose.yml` and re-run `docker compose up -d`, any established
-  connections/issued credentials on the recreated agent are gone — you'll
-  need to re-issue.
+- **Starting fresh / wiping everything** — `docker compose down -v` removes
+  the named wallet volumes too, so the next `docker compose up -d --build`
+  starts with genuinely empty wallets (you'll need to redo the one-time
+  setup: `setup-ledger.sh` then `register-schema.js`).
 - **QR code fails to render ("data too big")** — this only ever hit the
   *login* QR during development, because a connectionless proof request is
   larger than a plain connection invitation. Already fixed by using
@@ -207,10 +211,42 @@ This is the one part of the demo that needs manual, outside-of-code steps:
   here in case a future change to the requested attributes pushes the
   payload past a single QR's practical size limit.
 
-## Bonus feature (not yet started)
+## Bonus: 1-to-1 DIDComm messaging
 
-The brief includes an optional bonus: 1-to-1 DIDComm messaging between two
-wallets (e.g. student ↔ faculty). Per the brief, this is intentionally
-**not implemented yet** — the core credential-login flow above is the
-priority, and the bonus should only be started once you confirm you want
-to spend time on it.
+Two independent ACA-Py agents (`student-agent`, `faculty-agent` — the same
+containers used for automated credential-login testing) each expose a small
+chat UI. Either side generates a connection invitation; the other side
+scans/pastes it to connect directly, peer-to-peer, with no involvement from
+the university agent. Once connected, both sides exchange plain text
+messages over DIDComm's `basicmessage` protocol.
+
+This is deliberately **separate from the student login system** — there's
+no session/auth requirement to reach it, since it's a standalone protocol
+demo, not a portal feature.
+
+### Automated (no phone required)
+
+```bash
+bash scripts/e2e-messaging-test.sh
+```
+
+Creates a faculty invitation, connects the student side to it, sends a
+message each way, and confirms both sides received the other's message.
+
+### With the real UI
+
+1. Open **http://localhost:5173/messaging/faculty** in one browser tab/window.
+2. Open **http://localhost:5173/messaging/student** in another.
+3. On the faculty tab, click **Generate invitation** — a QR code and a
+   copyable link both appear.
+4. On the student tab, paste that link into **Connect to a faculty member**
+   and click **Connect**. (To use a real phone wallet instead of the second
+   browser tab for one side, scan the QR with Bifold — the same
+   ngrok/endpoint setup described above applies.)
+5. Within a few seconds, both tabs show the other party under
+   **Conversations** — click it to open the chat thread.
+6. Type a message on either side and hit **Send**; it appears on the other
+   tab within ~1.5s (polling interval).
+
+A shortcut link to `/messaging/student` is also on the Dashboard, under
+"Bonus: DIDComm messaging demo".

@@ -18,6 +18,8 @@ const ledgerConfig = loadLedgerConfig();
 module.exports = {
   port: process.env.PORT || 5000,
   universityAdminUrl: process.env.UNIVERSITY_ADMIN_URL || "http://localhost:8021",
+  studentAdminUrl: process.env.STUDENT_ADMIN_URL || "http://localhost:8031",
+  facultyAdminUrl: process.env.FACULTY_ADMIN_URL || "http://localhost:8041",
   sessionSecret: process.env.SESSION_SECRET || "dev-secret-change-me",
   adminToken: process.env.ADMIN_TOKEN || "dev-admin-token",
   frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",

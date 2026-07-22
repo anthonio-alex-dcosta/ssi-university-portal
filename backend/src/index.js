@@ -6,6 +6,7 @@ const config = require("./config");
 const loginRoutes = require("./routes/login");
 const { router: adminRoutes } = require("./routes/admin");
 const { router: protectedRoutes } = require("./routes/protected");
+const messagingRoutes = require("./routes/messaging");
 const webhookRoutes = require("./webhooks");
 
 const app = express();
@@ -39,6 +40,7 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/login", loginRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/messaging", messagingRoutes);
 app.use("/api", protectedRoutes);
 
 app.use((err, req, res, next) => {
