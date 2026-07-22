@@ -1,0 +1,115 @@
+services:
+  university-agent:
+    image: ${ACAPY_IMAGE:-ghcr.io/openwallet-foundation/acapy-agent:1.6.0}
+    container_name: university-agent
+    ports:
+      - "8020:8020"
+      - "8021:8021"
+    command:
+      - start
+      - --auto-provision
+      - --inbound-transport
+      - http
+      - "0.0.0.0"
+      - "8020"
+      - --outbound-transport
+      - http
+      - --endpoint
+      - ${UNIVERSITY_ENDPOINT:-http://university-agent:8020}
+      - --admin
+      - "0.0.0.0"
+      - "8021"
+      - --admin-insecure-mode
+      - --genesis-url
+      - ${GENESIS_URL}
+      - --wallet-type
+      - askar
+      - --wallet-name
+      - university_wallet
+      - --wallet-key
+      - ${UNIVERSITY_WALLET_KEY}
+      - --seed
+      - ${UNIVERSITY_SEED}
+      - --label
+      - "BRAC University"
+      - --webhook-url
+      - http://backend:5000/webhooks
+      - --auto-accept-invites
+      - --auto-accept-requests
+      - --auto-ping-connection
+      - --log-level
+      - info
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8021/status/live')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [ssi-net]
+
+  student-agent:
+    image: ${ACAPY_IMAGE:-ghcr.io/openwallet-foundation/acapy-agent:1.6.0}
+    container_name: student-agent
+    ports:
+      - "8030:8030"
+      - "8031:8031"
+    command:
+      - start
+      - --auto-provision
+      - --inbound-transport
+      - http
+      - "0.0.0.0"
+      - "8030"
+      - --outbound-transport
+      - http
+      - --endpoint
+      - http://student-agent:8030
+      - --admin
+      - "0.0.0.0"
+      - "8031"
+      - --admin-insecure-mode
+      - --genesis-url
+      - ${GENESIS_URL}
+      - --wallet-type
+      - askar
+      - --wallet-name
+      - student_wallet
+      - --wallet-key
+      - ${STUDENT_WALLET_KEY}
+      - --label
+      - "Test Student Wallet"
+      - --auto-accept-invites
+      - --auto-accept-requests
+      - --auto-ping-connection
+      - --auto-respond-credential-offer
+      - --auto-store-credential
+      - --auto-respond-presentation-request
+      - --log-level
+      - info
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8031/status/live')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [ssi-net]
+
+  backend:
+    build: ./backend
+    container_name: portal-backend
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    environment:
+      PORT: 5000
+      UNIVERSITY_ADMIN_URL: http://university-agent:8021
+      SESSION_SECRET: ${SESSION_SECRET}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+    volumes:
+      - ./backend/ledger-config.json:/app/ledger-config.json
+    depends_on:
+      university-agent:
+        condition: service_healthy
+    networks: [ssi-net]
+
+networks:
+  ssi-net:
+    driver: bridge
