@@ -5,6 +5,7 @@ services:
     ports:
       - "8020:8020"
       - "8021:8021"
+      - "8022:8022"
     command:
       - start
       - --auto-provision
@@ -12,10 +13,17 @@ services:
       - http
       - "0.0.0.0"
       - "8020"
+      - --inbound-transport
+      - ws
+      - "0.0.0.0"
+      - "8022"
       - --outbound-transport
       - http
+      - --outbound-transport
+      - ws
       - --endpoint
       - ${UNIVERSITY_ENDPOINT:-http://university-agent:8020}
+      - ${UNIVERSITY_WS_ENDPOINT:-ws://university-agent:8022}
       - --admin
       - "0.0.0.0"
       - "8021"
@@ -37,11 +45,18 @@ services:
       - --auto-accept-invites
       - --auto-accept-requests
       - --auto-ping-connection
+      - --open-mediation
+      - --plugin
+      - auto_issue_bridge
       - --log-level
       - info
     user: root
+    environment:
+      PYTHONPATH: /plugins
     volumes:
       - university-wallet:/home/aries/.acapy_agent/wallet
+      - ./acapy-plugins/auto_issue_bridge:/plugins/auto_issue_bridge
+      - pending-issuance:/shared/pending
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8021/status/live')"]
       interval: 5s
@@ -148,6 +163,20 @@ services:
       retries: 30
     networks: [ssi-net]
 
+  transport-proxy:
+    build: ./transport-proxy
+    container_name: transport-proxy
+    ports:
+      - "8023:8023"
+    environment:
+      PORT: 8023
+      HTTP_TARGET: http://university-agent:8020
+      WS_TARGET: http://university-agent:8022
+    depends_on:
+      university-agent:
+        condition: service_healthy
+    networks: [ssi-net]
+
   backend:
     build: ./backend
     container_name: portal-backend
@@ -163,6 +192,7 @@ services:
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
     volumes:
       - ./backend/ledger-config.json:/app/ledger-config.json
+      - pending-issuance:/shared/pending
     depends_on:
       university-agent:
         condition: service_healthy
@@ -180,3 +210,4 @@ volumes:
   university-wallet:
   student-wallet:
   faculty-wallet:
+  pending-issuance:

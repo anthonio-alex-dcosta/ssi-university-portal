@@ -159,20 +159,46 @@ the whole pipeline works after any change, without touching a phone.
 
 ### With a real phone wallet (Bifold)
 
-This is the one part of the demo that needs manual, outside-of-code steps:
+This is the one part of the demo that needs manual, outside-of-code steps.
+
+**Preferred when the phone is USB-debugging (recommended):**
+
+```bash
+# 1. Unlock the phone and tap Allow on the "Allow USB debugging?" prompt
+# 2. Then:
+bash scripts/phone-usb-tunnel.sh
+```
+
+That script starts the stack, runs `adb reverse tcp:8023 tcp:8023`, and points
+`UNIVERSITY_ENDPOINT` / `UNIVERSITY_WS_ENDPOINT` at `http://127.0.0.1:8023` so
+Bifold reaches the agent through USB — no ngrok required.
+
+**Manual steps you do:**
+
+1. Keep the USB cable connected and Bifold open.
+2. Open **http://localhost:5173/admin/issue**, fill in a student, generate the QR.
+3. Scan with Bifold → accept the connection → **accept the Student ID credential offer**
+   (check the home screen / notifications if it does not pop up on the chat screen).
+4. Confirm the credential appears under Credentials, then use the login QR as usual.
+
+**Alternative: ngrok (Wi-Fi / no USB reverse):**
 
 **Manual steps you do:**
 
 1. **Expose the university agent publicly.** ACA-Py needs a DIDComm
    endpoint your phone can reach — your laptop's `localhost` isn't
-   reachable from a phone on its own network.
+   reachable from a phone on its own network. Tunnel the
+   **transport-proxy** on port **8023** (not 8020): that proxy multiplexes
+   HTTP DIDComm and WebSocket upgrades onto one public URL, which mobile
+   wallets need for return-routing.
    ```bash
-   ngrok http 8020
+   ngrok http 8023
    ```
-   Copy the `https://....ngrok-free.app` URL it prints.
+   Copy the `https://....ngrok-free.app` (or `.ngrok-free.dev`) URL it prints.
 2. **Point the agent at that URL.** Edit `.env`:
    ```
    UNIVERSITY_ENDPOINT=https://<your-ngrok-subdomain>.ngrok-free.app
+   UNIVERSITY_WS_ENDPOINT=wss://<your-ngrok-subdomain>.ngrok-free.app
    ```
    Then recreate the agent so it re-announces this endpoint:
    ```bash

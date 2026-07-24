@@ -118,7 +118,7 @@ export default function Login() {
       </div>
 
       <div className="flex flex-col items-center justify-center bg-slate-50 p-8">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-md">
           <div className="mb-8 text-center lg:hidden">
             <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-brand-950 text-gold-400 font-bold">
               BU
@@ -130,11 +130,12 @@ export default function Login() {
             <h2 className="text-lg font-semibold text-slate-900">Scan to log in</h2>
             <p className="mt-1 text-sm text-slate-500">
               Open your Aries wallet app (e.g. Bifold) and scan the code below to present your
-              Student ID credential.
+              Student ID credential. For best results, lower your screen brightness slightly and
+              hold the phone steady until focus locks.
             </p>
 
             <div className="mt-6 flex items-center justify-center">
-              <div className="relative flex h-64 w-64 items-center justify-center rounded-xl border-2 border-dashed border-brand-200 bg-brand-50 p-3">
+              <div className="relative flex h-96 w-96 items-center justify-center rounded-xl border-2 border-dashed border-brand-200 bg-white p-2">
                 {phase === "loading" && (
                   <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
                 )}

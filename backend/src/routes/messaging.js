@@ -39,8 +39,8 @@ router.post("/:role/invite", requireRole, async (req, res) => {
       },
     });
     const qrDataUrl = await QRCode.toDataURL(oobResp.invitation_url, {
-      margin: 1,
-      width: 320,
+      margin: 4,
+      width: 600,
       errorCorrectionLevel: "L",
     });
     res.json({ invitationUrl: oobResp.invitation_url, qrDataUrl });

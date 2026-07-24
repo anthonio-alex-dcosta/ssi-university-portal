@@ -11,10 +11,15 @@ const router = express.Router();
 
 function extractRevealedAttrs(presRecord) {
   const indyPres = presRecord?.by_format?.pres?.indy;
-  const revealed = indyPres?.requested_proof?.revealed_attrs || {};
+  const requestedProof = indyPres?.requested_proof || {};
   const out = {};
-  for (const [name, entry] of Object.entries(revealed)) {
+  for (const [name, entry] of Object.entries(requestedProof.revealed_attrs || {})) {
     out[name] = entry.raw;
+  }
+  for (const group of Object.values(requestedProof.revealed_attr_groups || {})) {
+    for (const [name, entry] of Object.entries(group.values || {})) {
+      out[name] = entry.raw;
+    }
   }
   return out;
 }
@@ -60,6 +65,12 @@ async function handlePresentProof(body) {
   }
 }
 
+// The actual credential offer is sent by the auto_issue_bridge ACA-Py
+// plugin (see acapy-plugins/auto_issue_bridge), not from here — it reacts
+// to this same "connection active" event synchronously, inside ACA-Py's
+// own process, which is required for delivery to succeed for wallets with
+// no public inbound endpoint (see the comment in admin.js's /issue route).
+// This handler only updates status for the admin UI's benefit.
 async function handleConnections(body) {
   const { state, connection_id: connectionId, invitation_msg_id: invitationMsgId } = body;
   if (state !== "completed" && state !== "active") return;
@@ -71,48 +82,39 @@ async function handleConnections(body) {
   attempt.status = "connected";
   attempt.connectionId = connectionId;
   issuanceAttempts.set(invitationMsgId, attempt);
+}
 
-  try {
-    const attrs = Object.entries(attempt.studentData).map(([name, value]) => ({
-      name,
-      value: String(value),
-    }));
-
-    const offerResp = await acapy("/issue-credential-2.0/send-offer", {
-      method: "POST",
-      body: {
-        connection_id: connectionId,
-        auto_issue: true,
-        credential_preview: { "@type": "issue-credential/2.0/credential-preview", attributes: attrs },
-        filter: { indy: { cred_def_id: require("../config").credDefId } },
-      },
-    });
-
-    attempt.status = "offer_sent";
-    attempt.credExId = offerResp.cred_ex_id;
-    issuanceAttempts.set(invitationMsgId, attempt);
-    credExToIssuanceId.set(offerResp.cred_ex_id, invitationMsgId);
-  } catch (err) {
-    console.error("Failed to send credential offer", err);
-    attempt.status = "failed";
-    issuanceAttempts.set(invitationMsgId, attempt);
+function findIssuanceAttemptByConnection(connectionId) {
+  for (const [issuanceId, attempt] of issuanceAttempts) {
+    if (attempt.connectionId === connectionId && !attempt.credExId) {
+      return issuanceId;
+    }
   }
+  return null;
 }
 
 async function handleIssueCredential(body) {
-  const { cred_ex_id: credExId, state } = body;
-  const issuanceId = credExToIssuanceId.get(credExId);
+  const { cred_ex_id: credExId, connection_id: connectionId, state } = body;
+  let issuanceId = credExToIssuanceId.get(credExId);
+  if (!issuanceId && connectionId) {
+    issuanceId = findIssuanceAttemptByConnection(connectionId);
+    if (issuanceId) credExToIssuanceId.set(credExId, issuanceId);
+  }
   if (!issuanceId) return;
   const attempt = issuanceAttempts.get(issuanceId);
   if (!attempt) return;
 
-  if (state === "done" || state === "credential-issued") {
+  attempt.credExId = credExId;
+  if (state === "done") {
     attempt.status = "issued";
-    issuanceAttempts.set(issuanceId, attempt);
+  } else if (state === "offer-sent") {
+    attempt.status = "offer_sent";
+  } else if (state === "credential-issued") {
+    attempt.status = "awaiting_wallet_ack";
   } else if (state === "abandoned") {
     attempt.status = "failed";
-    issuanceAttempts.set(issuanceId, attempt);
   }
+  issuanceAttempts.set(issuanceId, attempt);
 }
 
 function handleBasicMessage(body) {

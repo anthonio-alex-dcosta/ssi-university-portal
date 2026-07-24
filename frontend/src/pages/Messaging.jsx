@@ -156,7 +156,7 @@ export default function Messaging() {
                   <img
                     src={myInvite.qrDataUrl}
                     alt="Invitation QR"
-                    className="mx-auto h-40 w-40 rounded-lg border border-slate-200"
+                    className="mx-auto h-64 w-64 rounded-lg border border-slate-200"
                   />
                   <textarea
                     readOnly

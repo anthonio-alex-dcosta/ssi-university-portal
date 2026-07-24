@@ -13,18 +13,15 @@ function buildProofRequest() {
       "No credential definition registered yet. Run scripts/register-schema.js first."
     );
   }
-  const attrNames = config.schemaAttributes;
-  const requested_attributes = {};
-  for (const attr of attrNames) {
-    requested_attributes[attr] = {
-      name: attr,
-      restrictions: [{ cred_def_id: credDefId }],
-    };
-  }
   return {
-    name: "BRAC University Portal Login",
+    name: "Login",
     version: "1.0",
-    requested_attributes,
+    requested_attributes: {
+      student_info: {
+        names: config.schemaAttributes,
+        restrictions: [{ cred_def_id: credDefId }],
+      },
+    },
     requested_predicates: {},
   };
 }
@@ -41,7 +38,7 @@ router.get("/init", async (req, res) => {
         presentation_request: { indy: presRequest },
         auto_verify: true,
         auto_remove: false,
-        comment: "BRAC University Portal login",
+        comment: "Login",
       },
     });
     const presExId = createResp.pres_ex_id;
@@ -51,7 +48,7 @@ router.get("/init", async (req, res) => {
       body: {
         alias: "BRAC University Portal Login",
         goal_code: "aries.vc.verify",
-        goal: "Log in to the BRAC University Student Portal",
+        goal: "Login",
         attachments: [{ id: presExId, type: "present-proof" }],
       },
     });
@@ -59,8 +56,8 @@ router.get("/init", async (req, res) => {
     loginAttempts.set(presExId, { status: "pending", createdAt: Date.now() });
 
     const qrDataUrl = await QRCode.toDataURL(oobResp.invitation_url, {
-      margin: 1,
-      width: 320,
+      margin: 4,
+      width: 1200,
       errorCorrectionLevel: "L",
     });
 

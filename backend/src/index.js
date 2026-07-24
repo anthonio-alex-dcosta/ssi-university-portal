@@ -16,9 +16,21 @@ app.set("trust proxy", 1);
 // the raw JSON parser for them before CORS/session, they don't need either.
 app.use("/webhooks", express.json(), webhookRoutes);
 
+const allowedOrigins = new Set([
+  config.frontendOrigin,
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+
 app.use(
   cors({
-    origin: config.frontendOrigin,
+    origin(origin, callback) {
+      // Non-browser clients (curl, ACA-Py) send no Origin.
+      if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin ${origin}`));
+    },
     credentials: true,
   })
 );

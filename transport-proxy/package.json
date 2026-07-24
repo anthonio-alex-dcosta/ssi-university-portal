@@ -1,0 +1,9 @@
+{
+  "name": "ssi-transport-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}
